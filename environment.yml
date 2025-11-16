@@ -1,0 +1,15 @@
+name: ai-course
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas
+  - scikit-learn
+  - plotly
+  - numpy
+  - ucimlrepo
+  - mlflow
+  - streamlit
+  - ipykernel
+  - nbformat
+  - feature_engine
