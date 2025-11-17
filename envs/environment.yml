@@ -11,4 +11,6 @@ dependencies:
   - mlflow
   - streamlit
   - ipykernel
+  - nbformat
   - feature_engine
+  - shap

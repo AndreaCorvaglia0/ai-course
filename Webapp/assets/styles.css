@@ -1,0 +1,51 @@
+/* Sfondo generale */
+[data-testid="stAppViewContainer"] {
+    background-color: #f6f7fb;
+}
+
+/* Sidebar leggermente distinta */
+[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid #e0e3ea;
+}
+
+/* Header della pagina */
+.page-header h1 {
+    margin-bottom: 0.25rem;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+
+.page-header p {
+    margin-top: 0;
+    color: #60636f;
+    font-size: 0.95rem;
+}
+
+/* Card del risultato */
+.prediction-card {
+    margin-top: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 0.9rem;
+    background: linear-gradient(135deg, #007a9c, #004f6e);
+    color: #ffffff;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
+    text-align: center;
+}
+
+.prediction-card .prediction-label {
+    font-size: 0.95rem;
+    opacity: 0.9;
+    margin-bottom: 0.4rem;
+}
+
+.prediction-card .prediction-value {
+    font-size: 2.1rem;
+    font-weight: 600;
+}
+
+/* Tabelle più pulite */
+[data-testid="stDataFrame"] {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
