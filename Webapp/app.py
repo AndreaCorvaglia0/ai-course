@@ -3,15 +3,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from config import (
-    MLFLOW_MODEL_NAME,
-    MLFLOW_MODEL_URI,
-)
-from model_utils import (
-    infer_feature_config,
-    make_prediction,
-    load_reference_data,
-)
+from config import MLFLOW_MODEL_NAME
+from model_utils import infer_feature_config, make_prediction
 
 
 def load_css():
@@ -24,6 +17,7 @@ def load_css():
 def main():
     st.set_page_config(
         page_title="Bank Marketing – Propensione al deposito",
+        page_icon="🏦",
         layout="centered",
     )
 
@@ -33,17 +27,25 @@ def main():
     st.markdown(
         """
         <div class="page-header">
-            <h1>Bank Marketing – Propensione al deposito</h1>
-            <p>Demo webapp collegata al modello registrato in MLflow.</p>
+            <h1>🏦 Bank Marketing Prediction</h1>
+            <p>Prevedi la probabilità di sottoscrizione di un deposito a termine</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     # Sidebar con info modello
-    st.sidebar.title("Configurazione modello")
-    st.sidebar.markdown(f"**Nome modello**  \n`{MLFLOW_MODEL_NAME}`")
-    st.sidebar.markdown(f"**Model URI**  \n`{MLFLOW_MODEL_URI}`")
+    with st.sidebar:
+        st.markdown("### ℹ️ Informazioni")
+        st.info(f"**Modello**: {MLFLOW_MODEL_NAME}")
+        
+        with st.expander("📋 Come funziona"):
+            st.markdown("""
+            1. **Inserisci** i dati del cliente
+            2. **Valida** le informazioni
+            3. **Calcola** la probabilità
+            4. **Visualizza** il risultato
+            """)
 
     # Carichiamo descrizione delle feature
     config = infer_feature_config()
@@ -52,84 +54,127 @@ def main():
     categories_by_feature = config["categories_by_feature"]
     stats_numeric = config["stats_numeric"]
 
-    # Expander con schema
-    with st.expander("Schema delle feature del modello"):
-        df_schema = pd.DataFrame(config["feature_meta"])
-        st.dataframe(df_schema, use_container_width=True)
-
-    st.markdown("### Inserisci le caratteristiche del cliente")
+    # Step 1: Input dei dati
+    st.markdown(
+        """
+        <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Inserisci i dati del cliente</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     input_values = {}
 
-    col_left, col_right = st.columns(2)
-
     # Feature categoriche
-    with col_left:
-        for feat in categorical_features:
-            cats = categories_by_feature.get(feat, [])
-            default_idx = 0 if cats else None
-            input_values[feat] = st.selectbox(
-                feat,
-                options=cats,
-                index=default_idx,
-                key=f"cat_{feat}",
-            )
+    if categorical_features:
+        st.markdown("#### Informazioni categoriche")
+        cols = st.columns(2)
+        for idx, feat in enumerate(categorical_features):
+            with cols[idx % 2]:
+                cats = categories_by_feature.get(feat, [])
+                default_idx = 0 if cats else None
+                input_values[feat] = st.selectbox(
+                    feat.replace("_", " ").title(),
+                    options=cats,
+                    index=default_idx,
+                    key=f"cat_{feat}",
+                )
 
     # Feature numeriche
-    with col_right:
-        for feat in numeric_features:
-            stats = stats_numeric.get(feat, {})
-            default_val = stats.get("median", 0.0)
-            min_val = stats.get("min", None)
-            max_val = stats.get("max", None)
+    if numeric_features:
+        st.markdown("#### Informazioni numeriche")
+        cols = st.columns(2)
+        for idx, feat in enumerate(numeric_features):
+            with cols[idx % 2]:
+                stats = stats_numeric.get(feat, {})
+                default_val = stats.get("median", 0.0)
+                min_val = stats.get("min", None)
+                max_val = stats.get("max", None)
 
-            number_kwargs = {
-                "label": feat,
-                "value": float(default_val) if default_val is not None else 0.0,
-                "key": f"num_{feat}",
-            }
-            if min_val is not None:
-                number_kwargs["min_value"] = float(min_val)
-            if max_val is not None:
-                number_kwargs["max_value"] = float(max_val)
+                number_kwargs = {
+                    "label": feat.replace("_", " ").title(),
+                    "value": float(default_val) if default_val is not None else 0.0,
+                    "key": f"num_{feat}",
+                }
+                if min_val is not None:
+                    number_kwargs["min_value"] = float(min_val)
+                if max_val is not None:
+                    number_kwargs["max_value"] = float(max_val)
 
-            input_values[feat] = st.number_input(**number_kwargs)
+                input_values[feat] = st.number_input(**number_kwargs)
 
-    st.markdown("---")
+    # Step 2: Validazione (visual separator)
+    st.markdown(
+        """
+        <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-title">Calcola la predizione</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    if st.button("Calcola probabilità di sottoscrizione"):
-        pred = make_prediction(input_values)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        predict_button = st.button(
+            "🎯 Calcola probabilità",
+            type="primary",
+            use_container_width=True,
+        )
 
-        st.markdown("### Risultato")
+    # Step 3: Risultato
+    if predict_button:
+        with st.spinner("Elaborazione in corso..."):
+            pred = make_prediction(input_values)
+
+        st.markdown(
+            """
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <div class="step-title">Risultato della predizione</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         if "proba_positive" in pred:
             proba = pred["proba_positive"]
+            
+            # Determina il livello di probabilità
+            if proba >= 0.7:
+                level = "alta"
+                icon = "🟢"
+            elif proba >= 0.4:
+                level = "media"
+                icon = "🟡"
+            else:
+                level = "bassa"
+                icon = "🔴"
+            
             st.markdown(
                 f"""
                 <div class="prediction-card">
                     <div class="prediction-label">
-                        Probabilità che il cliente sottoscriva il deposito
+                        Probabilità di sottoscrizione
                     </div>
                     <div class="prediction-value">
                         {proba:.1%}
+                    </div>
+                    <div class="prediction-level">
+                        {icon} Probabilità {level}
                     </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
+            
+            # Visualizzazione aggiuntiva con barra di progresso
+            st.markdown("##### Indicatore visivo")
+            st.progress(proba)
         else:
             st.write("Predizione:", pred.get("prediction"))
-
-    # Dati di riferimento (opzionale)
-    with st.expander("Dati di riferimento utilizzati per i menu"):
-        df_ref = load_reference_data()
-        if df_ref is not None:
-            st.dataframe(df_ref.head(), use_container_width=True)
-        else:
-            st.write(
-                "Nessun dataset locale trovato. "
-                "Controlla il percorso in `config.BANK_DATA_PATH`."
-            )
 
 
 if __name__ == "__main__":
