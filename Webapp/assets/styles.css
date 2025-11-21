@@ -27,7 +27,7 @@
     margin-bottom: 0.5rem;
     font-size: 2.2rem;
     font-weight: 700;
-    color: #1a1a1a;
+    color: #0066cc; /* Fallback for browsers without gradient support */
     background: linear-gradient(135deg, #0066cc, #004999);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -133,6 +133,7 @@
 
 /* ===== BUTTONS ===== */
 
+/* Note: !important needed to override Streamlit's default button styles */
 button[kind="primary"] {
     background: linear-gradient(135deg, #0066cc, #004999) !important;
     border: none !important;
