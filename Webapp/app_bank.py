@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from capstone_project.config import (
+from config import (
     MLFLOW_MODEL_NAME,
     MLFLOW_MODEL_URI,
 )
@@ -160,7 +160,7 @@ def main():
         if feat in categorical_features:
             cats = categories_by_feature.get(feat, [])
             return st.selectbox(
-                f"📋 {feat.replace('_', ' ').title()}",
+                f"{feat.replace('_', ' ').title()}",
                 options=cats,
                 key=f"cat_{feat}",
                 help=get_feature_description(feat),
@@ -180,7 +180,7 @@ def main():
                 actual_default = int(default_val) if default_val is not None else (actual_min + actual_max) // 2
                 
                 return st.slider(
-                    f"🎚️ {feat.replace('_', ' ').title()}",
+                    f"{feat.replace('_', ' ').title()}",
                     min_value=actual_min,
                     max_value=actual_max,
                     value=actual_default,
@@ -191,7 +191,7 @@ def main():
             else:
                 # Use number input for other numeric features
                 return st.number_input(
-                    f"🔢 {feat.replace('_', ' ').title()}",
+                    f"{feat.replace('_', ' ').title()}",
                     value=float(default_val) if default_val is not None else 0.0,
                     min_value=float(min_val) if min_val is not None else None,
                     max_value=float(max_val) if max_val is not None else None,

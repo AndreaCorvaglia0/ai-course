@@ -13,7 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline as SklearnPipeline
 from sklearn.preprocessing import OneHotEncoder as SklearnOneHotEncoder
 
-from capstone_project.config import (
+from config import (
     MLFLOW_TRACKING_URI,
     MLFLOW_MODEL_NAME,
     MLFLOW_MODEL_URI,
@@ -138,10 +138,7 @@ def _update_cat_map_from_column_transformer(
 def infer_feature_config() -> Dict[str, Any]:
     """
     Costruisce una descrizione delle feature estraendo informazioni direttamente dalla pipeline MLflow.
-    La logica è robusta e cerca in ordine:
-    1. Step di preprocessing nella pipeline
-    2. Encoder specifici (binari, ordinali, one-hot)
-    3. Dataset di riferimento come fallback
+    Compatibile con pipeline scikit-learn (ColumnTransformer) come quelle create in T4.
 
     Ritorna un dict con:
     - feature_meta: lista di dict {name, dtype, kind}
@@ -152,7 +149,7 @@ def infer_feature_config() -> Dict[str, Any]:
     """
     _, pipeline = load_models()
     
-    # Estrai lo step di preprocessing dalla pipeline nidificata
+    # Estrai lo step di preprocessing dalla pipeline
     preprocess_step = None
     if hasattr(pipeline, 'named_steps') and 'preprocess' in pipeline.named_steps:
         preprocess_step = pipeline.named_steps['preprocess']
@@ -167,70 +164,68 @@ def infer_feature_config() -> Dict[str, Any]:
     # Cerca dati di riferimento per statistiche
     df_ref = load_reference_data()
     
-    if preprocess_step and hasattr(preprocess_step, 'named_steps'):
-        # Estrai informazioni dagli encoder nella pipeline
-        
-        # 1. Variabili ordinali (da FEOrdinalEncoder in 'ordinal_enc')
-        # Questo include sia binarie yes/no che ordinali vere (es. education)
-        if 'ordinal_enc' in preprocess_step.named_steps:
-            ordinal_step = preprocess_step.named_steps['ordinal_enc']
-            if hasattr(ordinal_step, 'variables'):
-                for var in ordinal_step.variables:
-                    # Estrai categorie dall'encoder_dict_
-                    if hasattr(ordinal_step, 'encoder_dict_') and var in ordinal_step.encoder_dict_:
-                        # encoder_dict_ mappa categoria -> valore numerico
-                        encoding_map = ordinal_step.encoder_dict_[var]
-                        # Ordina le categorie secondo l'ordine dell'encoding (0, 1, 2, ...)
-                        cats = sorted(encoding_map.keys(), key=lambda x: encoding_map[x])
-                        categories_by_feature[var] = cats
-                        
-                        # Determina se è binaria o ordinale guardando il numero di categorie
-                        if len(cats) == 2:
-                            feature_meta.append({"name": var, "dtype": "binary", "kind": "categorical"})
-                        else:
-                            feature_meta.append({"name": var, "dtype": "ordinal", "kind": "categorical"})
-                        
-                        categorical_features.append(var)
-        
-        # 2. Variabili categoriche nominali (da FEOneHotEncoder in 'one_hot')
-        if 'one_hot' in preprocess_step.named_steps:
-            oh_step = preprocess_step.named_steps['one_hot']
-            if hasattr(oh_step, 'variables'):
-                for var in oh_step.variables:
-                    feature_meta.append({"name": var, "dtype": "string", "kind": "categorical"})
-                    categorical_features.append(var)
+    # Caso 1: Pipeline scikit-learn con ColumnTransformer (come in T4)
+    if isinstance(preprocess_step, ColumnTransformer):
+        for name, transformer, cols in preprocess_step.transformers_:
+            if name == 'remainder':
+                continue
+                
+            # Binary encoder (OrdinalEncoder con 2 categorie)
+            if name == 'bin' or name == 'binary':
+                for col in cols:
+                    feature_meta.append({"name": col, "dtype": "binary", "kind": "categorical"})
+                    categorical_features.append(col)
+                    # Per variabili binarie yes/no
+                    categories_by_feature[col] = ["no", "yes"]
+            
+            # Ordinal encoder (OrdinalEncoder con ordine semantico)
+            elif name == 'ord' or name == 'ordinal':
+                if hasattr(transformer, 'categories_'):
+                    for col, cats in zip(cols, transformer.categories_):
+                        feature_meta.append({"name": col, "dtype": "ordinal", "kind": "categorical"})
+                        categorical_features.append(col)
+                        categories_by_feature[col] = [str(c) for c in cats]
+                else:
+                    # Fallback se non ancora fitted
+                    for col in cols:
+                        feature_meta.append({"name": col, "dtype": "ordinal", "kind": "categorical"})
+                        categorical_features.append(col)
+                        if df_ref is not None and col in df_ref.columns:
+                            cats = sorted(df_ref[col].dropna().unique().tolist())
+                            categories_by_feature[col] = cats
+            
+            # Nominal encoder (OneHotEncoder)
+            elif name == 'nom' or name == 'nominal':
+                if hasattr(transformer, 'categories_'):
+                    for col, cats in zip(cols, transformer.categories_):
+                        feature_meta.append({"name": col, "dtype": "string", "kind": "categorical"})
+                        categorical_features.append(col)
+                        categories_by_feature[col] = [str(c) for c in cats]
+                else:
+                    # Fallback se non ancora fitted
+                    for col in cols:
+                        feature_meta.append({"name": col, "dtype": "string", "kind": "categorical"})
+                        categorical_features.append(col)
+                        if df_ref is not None and col in df_ref.columns:
+                            cats = sorted(df_ref[col].dropna().unique().tolist())
+                            categories_by_feature[col] = cats
+            
+            # Numeric scaler (StandardScaler, RobustScaler, etc.)
+            elif name == 'num' or name == 'numeric':
+                for col in cols:
+                    feature_meta.append({"name": col, "dtype": "double", "kind": "numeric"})
+                    numeric_features.append(col)
                     
-                    # Estrai categorie dall'encoder_dict_
-                    if hasattr(oh_step, 'encoder_dict_') and var in oh_step.encoder_dict_:
-                        cats = [str(c) for c in oh_step.encoder_dict_[var] if pd.notna(c)]
-                        categories_by_feature[var] = cats
-                    elif df_ref is not None and var in df_ref.columns:
-                        # Fallback: usa il dataset
-                        cats = sorted(df_ref[var].dropna().unique().tolist())
-                        categories_by_feature[var] = cats
-                    else:
-                        categories_by_feature[var] = []
-        
-        # 3. Variabili numeriche (da numeric_imputer in 'median_num')
-        if 'median_num' in preprocess_step.named_steps:
-            num_step = preprocess_step.named_steps['median_num']
-            if hasattr(num_step, 'variables'):
-                for var in num_step.variables:
-                    # Salta le già processate come categoriche
-                    if var not in categorical_features:
-                        feature_meta.append({"name": var, "dtype": "double", "kind": "numeric"})
-                        numeric_features.append(var)
-                        
-                        # Estrai statistiche dal dataset
-                        if df_ref is not None and var in df_ref.columns:
-                            series = df_ref[var].dropna()
-                            if not series.empty:
-                                stats_numeric[var] = {
-                                    "min": float(series.min()),
-                                    "max": float(series.max()),
-                                    "median": float(series.median()),
-                                    "mean": float(series.mean()),
-                                }
+                    # Estrai statistiche dal dataset di riferimento
+                    if df_ref is not None and col in df_ref.columns:
+                        series = df_ref[col].dropna()
+                        if not series.empty:
+                            stats_numeric[col] = {
+                                "min": float(series.min()),
+                                "max": float(series.max()),
+                                "median": float(series.median()),
+                                "mean": float(series.mean()),
+                            }
     
     # Fallback: se non riusciamo a estrarre dalla pipeline, usa il dataset
     if not feature_meta and df_ref is not None:
