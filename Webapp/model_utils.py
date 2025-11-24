@@ -13,11 +13,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline as SklearnPipeline
 from sklearn.preprocessing import OneHotEncoder as SklearnOneHotEncoder
 
-from config import (
+from capstone_project.config import (
     MLFLOW_TRACKING_URI,
     MLFLOW_MODEL_NAME,
     MLFLOW_MODEL_URI,
-    BANK_DATA_PATH,
     TARGET_COLUMN,
     POSITIVE_CLASS,
 )
@@ -39,13 +38,23 @@ def load_reference_data() -> pd.DataFrame | None:
     """
     Carica un dataset di riferimento, se presente.
     Serve per ricavare categorie e range numerici.
+    Nota: ritorna None se il percorso non è configurato.
     """
-    if BANK_DATA_PATH.exists():
-        df = pd.read_csv(BANK_DATA_PATH)
-        # Togliamo il target se presente
-        if TARGET_COLUMN in df.columns:
-            df = df.drop(columns=[TARGET_COLUMN])
-        return df
+    # Prova a cercare un file di dati nella cartella padre
+    root_dir = Path(__file__).resolve().parents[1]
+    possible_paths = [
+        root_dir / "data" / "bank_marketing_ml_ready.csv",
+        root_dir / "Dati" / "bank_marketing_prepared_classification.csv",
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            df = pd.read_csv(path)
+            # Togliamo il target se presente
+            if TARGET_COLUMN in df.columns:
+                df = df.drop(columns=[TARGET_COLUMN])
+            return df
+    
     return None
 
 
@@ -128,84 +137,121 @@ def _update_cat_map_from_column_transformer(
 
 def infer_feature_config() -> Dict[str, Any]:
     """
-    Costruisce una descrizione delle feature che serve all'interfaccia Streamlit.
+    Costruisce una descrizione delle feature estraendo informazioni direttamente dalla pipeline MLflow.
+    La logica è robusta e cerca in ordine:
+    1. Step di preprocessing nella pipeline
+    2. Encoder specifici (binari, ordinali, one-hot)
+    3. Dataset di riferimento come fallback
 
     Ritorna un dict con:
     - feature_meta: lista di dict {name, dtype, kind}
     - numeric_features: lista di nomi numerici
-    - categorical_features: lista di nomi categorici
+    - categorical_features: lista di nomi categorici (originali, non one-hot)
     - categories_by_feature: dict {feature -> [categoria1, ...]}
     - stats_numeric: dict {feature -> {min, max, median}}
     """
     _, pipeline = load_models()
-    input_schema = load_input_schema()
-    df_ref = load_reference_data()
-
-    # Prova a leggere categorie dal pipeline
-    cat_from_encoder = _get_categorical_from_pipeline(pipeline)
-
+    
+    # Estrai lo step di preprocessing dalla pipeline nidificata
+    preprocess_step = None
+    if hasattr(pipeline, 'named_steps') and 'preprocess' in pipeline.named_steps:
+        preprocess_step = pipeline.named_steps['preprocess']
+    
+    # Inizializza strutture dati
     feature_meta: List[Dict[str, Any]] = []
     numeric_features: List[str] = []
     categorical_features: List[str] = []
-
-    for col in input_schema:
-        name = col.name
-        dtype = str(col.type).lower() if hasattr(col, "type") else "unknown"
-
-        if name in cat_from_encoder:
-            kind = "categorical"
-        elif dtype in ("string", "binary"):
-            kind = "categorical"
-        else:
-            kind = "numeric"
-
-        feature_meta.append(
-            {
-                "name": name,
-                "dtype": dtype,
-                "kind": kind,
-            }
-        )
-
-        if kind == "categorical":
-            categorical_features.append(name)
-        else:
-            numeric_features.append(name)
-
-    # Costruzione mappa categorie
     categories_by_feature: Dict[str, List[str]] = {}
-
-    # 1) dal pipeline, se disponibile
-    if cat_from_encoder:
-        categories_by_feature.update(cat_from_encoder)
-
-    # 2) fallback dal dataset
-    if df_ref is not None:
-        for feat in categorical_features:
-            if feat not in categories_by_feature and feat in df_ref.columns:
-                cats = (
-                    df_ref[feat]
-                    .dropna()
-                    .astype(str)
-                    .drop_duplicates()
-                    .sort_values()
-                    .tolist()
-                )
-                categories_by_feature[feat] = cats
-
-    # Statistiche numeriche per suggerire range e default
     stats_numeric: Dict[str, Dict[str, float]] = {}
-    if df_ref is not None:
-        for feat in numeric_features:
-            if feat in df_ref.columns:
-                series = df_ref[feat].dropna()
+    
+    # Cerca dati di riferimento per statistiche
+    df_ref = load_reference_data()
+    
+    if preprocess_step and hasattr(preprocess_step, 'named_steps'):
+        # Estrai informazioni dagli encoder nella pipeline
+        
+        # 1. Variabili ordinali (da FEOrdinalEncoder in 'ordinal_enc')
+        # Questo include sia binarie yes/no che ordinali vere (es. education)
+        if 'ordinal_enc' in preprocess_step.named_steps:
+            ordinal_step = preprocess_step.named_steps['ordinal_enc']
+            if hasattr(ordinal_step, 'variables'):
+                for var in ordinal_step.variables:
+                    # Estrai categorie dall'encoder_dict_
+                    if hasattr(ordinal_step, 'encoder_dict_') and var in ordinal_step.encoder_dict_:
+                        # encoder_dict_ mappa categoria -> valore numerico
+                        encoding_map = ordinal_step.encoder_dict_[var]
+                        # Ordina le categorie secondo l'ordine dell'encoding (0, 1, 2, ...)
+                        cats = sorted(encoding_map.keys(), key=lambda x: encoding_map[x])
+                        categories_by_feature[var] = cats
+                        
+                        # Determina se è binaria o ordinale guardando il numero di categorie
+                        if len(cats) == 2:
+                            feature_meta.append({"name": var, "dtype": "binary", "kind": "categorical"})
+                        else:
+                            feature_meta.append({"name": var, "dtype": "ordinal", "kind": "categorical"})
+                        
+                        categorical_features.append(var)
+        
+        # 2. Variabili categoriche nominali (da FEOneHotEncoder in 'one_hot')
+        if 'one_hot' in preprocess_step.named_steps:
+            oh_step = preprocess_step.named_steps['one_hot']
+            if hasattr(oh_step, 'variables'):
+                for var in oh_step.variables:
+                    feature_meta.append({"name": var, "dtype": "string", "kind": "categorical"})
+                    categorical_features.append(var)
+                    
+                    # Estrai categorie dall'encoder_dict_
+                    if hasattr(oh_step, 'encoder_dict_') and var in oh_step.encoder_dict_:
+                        cats = [str(c) for c in oh_step.encoder_dict_[var] if pd.notna(c)]
+                        categories_by_feature[var] = cats
+                    elif df_ref is not None and var in df_ref.columns:
+                        # Fallback: usa il dataset
+                        cats = sorted(df_ref[var].dropna().unique().tolist())
+                        categories_by_feature[var] = cats
+                    else:
+                        categories_by_feature[var] = []
+        
+        # 3. Variabili numeriche (da numeric_imputer in 'median_num')
+        if 'median_num' in preprocess_step.named_steps:
+            num_step = preprocess_step.named_steps['median_num']
+            if hasattr(num_step, 'variables'):
+                for var in num_step.variables:
+                    # Salta le già processate come categoriche
+                    if var not in categorical_features:
+                        feature_meta.append({"name": var, "dtype": "double", "kind": "numeric"})
+                        numeric_features.append(var)
+                        
+                        # Estrai statistiche dal dataset
+                        if df_ref is not None and var in df_ref.columns:
+                            series = df_ref[var].dropna()
+                            if not series.empty:
+                                stats_numeric[var] = {
+                                    "min": float(series.min()),
+                                    "max": float(series.max()),
+                                    "median": float(series.median()),
+                                    "mean": float(series.mean()),
+                                }
+    
+    # Fallback: se non riusciamo a estrarre dalla pipeline, usa il dataset
+    if not feature_meta and df_ref is not None:
+        for col in df_ref.columns:
+            dtype = df_ref[col].dtype
+            if pd.api.types.is_numeric_dtype(dtype):
+                feature_meta.append({"name": col, "dtype": "double", "kind": "numeric"})
+                numeric_features.append(col)
+                series = df_ref[col].dropna()
                 if not series.empty:
-                    stats_numeric[feat] = {
+                    stats_numeric[col] = {
                         "min": float(series.min()),
                         "max": float(series.max()),
                         "median": float(series.median()),
                     }
-
+            else:
+                feature_meta.append({"name": col, "dtype": "string", "kind": "categorical"})
+                categorical_features.append(col)
+                cats = sorted(df_ref[col].dropna().unique().tolist())
+                categories_by_feature[col] = cats
+    
     return {
         "feature_meta": feature_meta,
         "numeric_features": numeric_features,
@@ -219,13 +265,14 @@ def make_prediction(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     Esegue la predizione con il modello caricato da MLflow.
 
-    input_dict: {feature_name: value}
+    input_dict: {feature_name: value} - valori categorici originali (es. job="student")
 
     Ritorna:
     - per classificazione: {
         "positive_class": ...,
         "proba_positive": float,
         "proba_raw": [p_class_0, p_class_1, ...],
+        "classes": [...],  # per debug
       }
     - per regressione: {
         "prediction": float
@@ -233,11 +280,14 @@ def make_prediction(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     """
     _, pipeline = load_models()
     config = infer_feature_config()
-    ordered_cols = [f["name"] for f in config["feature_meta"]]
-
-    # Costruiamo DataFrame con una sola riga, ordinando le colonne
+    
+    # Le feature originali (prima dell'encoding)
+    original_features = [f["name"] for f in config["feature_meta"]]
+    
+    # Costruiamo DataFrame con le feature originali
+    # La pipeline si occuperà di tutte le trasformazioni (ordinal, one-hot, scaling)
     X = pd.DataFrame([input_dict])
-    X = X.reindex(columns=ordered_cols)
+    X = X.reindex(columns=original_features)
 
     # Caso classificazione
     if hasattr(pipeline, "predict_proba"):
@@ -251,19 +301,31 @@ def make_prediction(input_dict: Dict[str, Any]) -> Dict[str, Any]:
         # Cerca la posizione della classe positiva
         if hasattr(clf, "classes_"):
             classes = list(clf.classes_)
-            if POSITIVE_CLASS in classes:
-                idx_pos = classes.index(POSITIVE_CLASS)
-            else:
-                idx_pos = int(np.argmax(proba))
+            
+            # Il target può essere "yes"/"no" oppure 1/0
+            # Proviamo prima "yes", poi 1, poi "1"
+            idx_pos = None
+            for positive_label in [POSITIVE_CLASS, 1, "1", True]:
+                if positive_label in classes:
+                    idx_pos = classes.index(positive_label)
+                    break
+            
+            # Se non trovato, assumiamo che la classe positiva sia l'ultima
+            if idx_pos is None:
+                idx_pos = len(classes) - 1
         else:
-            idx_pos = int(np.argmax(proba))
+            # Fallback: assumiamo indice 1 per classe positiva
+            idx_pos = min(1, len(proba) - 1)
 
         return {
             "positive_class": POSITIVE_CLASS,
             "proba_positive": float(proba[idx_pos]),
             "proba_raw": proba.tolist(),
+            "classes": classes if hasattr(clf, "classes_") else "unknown",
+            "idx_pos": idx_pos,
         }
 
     # Caso regressione
     y_pred = pipeline.predict(X)[0]
     return {"prediction": float(y_pred)}
+

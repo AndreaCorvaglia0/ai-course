@@ -1,51 +1,497 @@
-/* Sfondo generale */
+/* ============================================
+   MODERN HIGH-TECH DESIGN SYSTEM
+   ============================================ */
+
+/* Global Variables */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    
+    --bg-main: #0f0f23;
+    --bg-card: #1a1a2e;
+    --bg-input: #16213e;
+    --text-primary: #ffffff;
+    --text-secondary: #a0aec0;
+    --border-color: #2d3748;
+    --accent-blue: #4299e1;
+    --accent-purple: #9f7aea;
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* App Background - Dark Tech Theme */
 [data-testid="stAppViewContainer"] {
-    background-color: #f6f7fb;
+    background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
+    color: var(--text-primary);
 }
 
-/* Sidebar leggermente distinta */
+[data-testid="stHeader"] {
+    background: transparent;
+}
+
+[data-testid="stToolbar"] {
+    display: none;
+}
+
+/* Hide Sidebar by default */
 [data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #e0e3ea;
+    display: none;
 }
 
-/* Header della pagina */
-.page-header h1 {
-    margin-bottom: 0.25rem;
-    font-size: 1.8rem;
-    font-weight: 600;
-}
-
-.page-header p {
-    margin-top: 0;
-    color: #60636f;
-    font-size: 0.95rem;
-}
-
-/* Card del risultato */
-.prediction-card {
-    margin-top: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    border-radius: 0.9rem;
-    background: linear-gradient(135deg, #007a9c, #004f6e);
-    color: #ffffff;
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12);
+/* ============================================
+   HERO HEADER
+   ============================================ */
+.hero-header {
     text-align: center;
+    padding: 3rem 2rem 2rem;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-radius: 20px;
+    margin: 0 0 2rem 0;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    box-shadow: var(--shadow-md);
 }
 
-.prediction-card .prediction-label {
-    font-size: 0.95rem;
-    opacity: 0.9;
-    margin-bottom: 0.4rem;
+.hero-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: float 3s ease-in-out infinite;
 }
 
-.prediction-card .prediction-value {
-    font-size: 2.1rem;
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.hero-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.5px;
+}
+
+.hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.5rem 0;
+}
+
+.hero-badges {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    background: rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(102, 126, 234, 0.4);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #a0c4ff;
+    transition: all 0.3s ease;
+}
+
+.badge:hover {
+    background: rgba(102, 126, 234, 0.3);
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   MODEL INFO BAR
+   ============================================ */
+.model-info-bar {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    padding: 1rem 2rem;
+    background: var(--bg-card);
+    border-radius: 15px;
+    margin: 0 0 2rem 0;
+    border: 1px solid var(--border-color);
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.info-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
-/* Tabelle più pulite */
-[data-testid="stDataFrame"] {
-    border-radius: 0.5rem;
+.info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'Monaco', 'Courier New', monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #38ef7d;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ============================================
+   MAIN CONTAINER & SECTIONS
+   ============================================ */
+.main-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin: 2.5rem 0 1.5rem 0;
+    padding: 0 1rem;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    background: var(--primary-gradient);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.step-content h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.step-content p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   INPUT STYLING
+   ============================================ */
+
+/* Streamlit Input Fields */
+[data-testid="stSelectbox"] label,
+[data-testid="stNumberInput"] label,
+[data-testid="stSlider"] label {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+    font-size: 0.95rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stNumberInput"] input {
+    background-color: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+}
+
+[data-testid="stSelectbox"] > div > div:hover,
+[data-testid="stNumberInput"] input:hover {
+    border-color: var(--accent-blue) !important;
+}
+
+[data-testid="stSelectbox"] > div > div:focus-within,
+[data-testid="stNumberInput"] input:focus {
+    border-color: var(--accent-purple) !important;
+    box-shadow: 0 0 0 2px rgba(159, 122, 234, 0.2) !important;
+}
+
+/* Slider styling */
+[data-testid="stSlider"] {
+    padding: 0.5rem 0 !important;
+}
+
+[data-testid="stSlider"] .st-emotion-cache-1gulkj5,
+[data-testid="stSlider"] div[data-baseweb="slider"] {
+    background-color: transparent !important;
+}
+
+[data-testid="stSlider"] div[role="slider"] {
+    background: var(--primary-gradient) !important;
+    border: 2px solid white !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Remove extra spacing above inputs */
+[data-testid="stVerticalBlock"] > [data-testid="element-container"] {
+    margin-top: 0 !important;
+}
+
+div[data-testid="column"] > div {
+    padding-top: 0 !important;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+button[kind="primary"] {
+    background: var(--primary-gradient) !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.9rem 2rem !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+    transition: all 0.3s ease !important;
+}
+
+button[kind="primary"]:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5) !important;
+}
+
+button[kind="primary"]:active {
+    transform: translateY(0px) !important;
+}
+
+/* ============================================
+   PREDICTION CARD - DYNAMIC COLORS
+   ============================================ */
+.prediction-card {
+    margin: 2rem auto;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    border: 2px solid;
+    max-width: 700px;
+    transition: all 0.5s ease;
+    animation: slideIn 0.6s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* High Propensity - Green/Success */
+.prediction-card.high {
+    background: linear-gradient(135deg, rgba(17, 153, 142, 0.2) 0%, rgba(56, 239, 125, 0.2) 100%);
+    border-color: #38ef7d;
+}
+
+/* Medium Propensity - Orange/Warning */
+.prediction-card.medium {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(245, 87, 108, 0.2) 100%);
+    border-color: #f5576c;
+}
+
+/* Low Propensity - Red/Danger */
+.prediction-card.low {
+    background: linear-gradient(135deg, rgba(250, 112, 154, 0.2) 0%, rgba(254, 225, 64, 0.2) 100%);
+    border-color: #fee140;
+}
+
+.prediction-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.prediction-icon {
+    font-size: 3rem;
+}
+
+.prediction-level {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+}
+
+.prediction-main {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.prediction-value {
+    font-size: 4.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.prediction-label {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 500;
+}
+
+/* ============================================
+   PROBABILITY BAR
+   ============================================ */
+.probability-bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     overflow: hidden;
+    margin: 2rem 0;
+    position: relative;
+}
+
+.probability-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    transition: width 1s ease-out;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+}
+
+.prediction-card.high .probability-fill {
+    background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+    box-shadow: 0 0 10px rgba(56, 239, 125, 0.6);
+}
+
+.prediction-card.medium .probability-fill {
+    background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 0 10px rgba(245, 87, 108, 0.6);
+}
+
+.prediction-card.low .probability-fill {
+    background: linear-gradient(90deg, #fa709a 0%, #fee140 100%);
+    box-shadow: 0 0 10px rgba(254, 225, 64, 0.6);
+}
+
+/* ============================================
+   PREDICTION FOOTER
+   ============================================ */
+.prediction-footer {
+    display: flex;
+    justify-content: space-around;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footer-item {
+    text-align: center;
+    flex: 1;
+}
+
+.footer-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.footer-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.footer {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    margin-top: 4rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.footer p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+[data-testid="stSpinner"] > div {
+    border-color: var(--accent-purple) !important;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+@media (max-width: 768px) {
+    .hero-header h1 {
+        font-size: 2rem;
+    }
+    
+    .hero-icon {
+        font-size: 3rem;
+    }
+    
+    .model-info-bar {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .prediction-value {
+        font-size: 3rem;
+    }
+    
+    .prediction-footer {
+        flex-direction: column;
+        gap: 1rem;
+    }
 }
