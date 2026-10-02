@@ -9,7 +9,7 @@ Webapp Streamlit che carica un modello registrato in MLflow e permette di stimar
 - `config.py`: configurazione modello MLflow (IMPORTANTE: modificabile dai partecipanti)
 - `model_utils.py`: funzioni di utilità per caricare modelli e fare predizioni
 - `assets/styles.css`: stile CSS personalizzato della webapp
-- `requirements.txt`: dipendenze Python necessarie
+- `pyproject.toml` e `uv.lock` nella root: dipendenze condivise del progetto
 
 ## Configurazione
 
@@ -25,10 +25,16 @@ MLFLOW_MODEL_ALIAS = "production"                # Alias del modello da caricare
 
 ## Come eseguire
 
-### Dalla root del progetto (cartella 3.0):
+Dalla root del progetto, crea o aggiorna l'ambiente condiviso:
 
 ```bash
-streamlit run Webapp/app_bank.py
+uv sync
+```
+
+Avvia poi l'app:
+
+```bash
+uv run streamlit run Webapp/app_bank.py
 ```
 
 L'applicazione si aprirà automaticamente nel browser all'indirizzo http://localhost:8501
@@ -39,7 +45,7 @@ Se preferisci, puoi anche spostarti nella cartella Webapp:
 
 ```bash
 cd Webapp
-streamlit run app_bank.py
+uv run streamlit run app_bank.py
 ```
 
 ## Funzionalità
@@ -64,15 +70,5 @@ streamlit run app_bank.py
 
 ## Requisiti
 
-- Python 3.11+
-- Streamlit
-- MLflow
-- scikit-learn
-- pandas
-- numpy
-
-Installa le dipendenze con:
-
-```bash
-pip install -r requirements.txt
-```
+- Python 3.11
+- Streamlit Community Cloud usa `uv.lock` nella root del repository; seleziona Python 3.11 nelle impostazioni avanzate del deploy.
