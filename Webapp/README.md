@@ -16,7 +16,7 @@ Webapp Streamlit che carica un modello registrato in MLflow e permette di stimar
 Prima di lanciare l'app, verifica il file `config.py`:
 
 ```python
-MLFLOW_TRACKING_URI = "file:../mlruns"          # URI del tracking server
+MLFLOW_TRACKING_URI = MLRUNS_DIR.as_uri()        # cartella mlruns nella root del progetto
 MLFLOW_MODEL_NAME = "bank_marketing_model"      # Nome del modello registrato
 MLFLOW_MODEL_ALIAS = "production"                # Alias del modello da caricare
 ```
@@ -61,7 +61,7 @@ uv run streamlit run app_bank.py
 **Errore: "Model not found"**
 - Verifica che il modello sia registrato in MLflow con il nome corretto
 - Controlla che l'alias sia stato assegnato (es. `production`)
-- Verifica che il tracking URI sia corretto (`file:../mlruns`)
+- Verifica che la cartella `mlruns` sia nella root del progetto (accanto a `Webapp/`)
 
 **Errore: "Feature mismatch"**
 - Il modello si aspetta feature diverse da quelle fornite
