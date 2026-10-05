@@ -24,12 +24,15 @@ uv run streamlit run app.py
 - Nome del modello configurabile in `config.py`
 - Supporta formati: `.pkl`, `.joblib`
 
-### Interface Intelligente
-- **11 sliders interattivi** per parametri chimico-fisici
-- **Tooltip informativi** (hover su ⓘ) per ogni parametro
+### Interfaccia
+- **Slider raggruppati** (Acidità · Corpo e dolcezza · Conservanti e sali) con valori e unità di misura leggibili
+- **Nota sotto ogni parametro**: cosa misura, valori tipici del dataset (5°–95° percentile) e valore mediano dei vini di alta qualità
 - Visualizza solo le feature richieste dal modello specifico
-- **🎲 Generazione Random**: crea campioni di vino casuali per testare il modello
-- **Predizione Automatica**: aggiorna la valutazione istantaneamente al cambio dei parametri
+- **Lotti di esempio** (profili mediani reali del dataset) e **lotto casuale** dentro i range tipici
+- **Predizione automatica**: la valutazione si aggiorna a ogni modifica dei parametri
+- **Profilo del lotto**: grafico che confronta il lotto con i valori tipici e con i vini di alta qualità
+- **Cosa guarda il modello**: importanza delle feature (`feature_importances_` o coefficienti)
+- **Sidebar del modello**: nome, alias, versione, run e metriche sul test set (`accuracy`, `precision`, `recall`, `f1_score`, `roc_auc`)
 
 ### Valutazione Dinamica
 Il sistema fornisce 4 livelli di raccomandazione:
@@ -41,11 +44,12 @@ Il sistema fornisce 4 livelli di raccomandazione:
 | 📦 **Medio** | 15-29% | Imbottigliamento Diretto - Commercializzazione immediata |
 | ⚗️ **Base** | < 15% | Assemblaggio - Utilizzo per blend |
 
-### Design Moderno
-- **Tema cantina**: sfondo gradient bordeaux/marrone
-- **Colori dinamici**: cambiano in base alla qualità predetta
-- **Font eleganti**: Playfair Display + Lato
-- **Layout responsivo**: 2 colonne (input | risultato)
+### Design
+- **Tema cantina** in `.streamlit/config.toml`: carta avorio, bordeaux e oro, sidebar bordeaux scuro
+- **Font**: Playfair Display (titoli) + Lato (testo)
+- **Badge colorati** per il livello di qualità
+- **Layout responsivo**: 2 colonne su desktop (input | valutazione), una colonna su smartphone
+- Solo componenti nativi Streamlit, nessun CSS personalizzato
 
 ## ⚙️ Configurazione
 
@@ -94,7 +98,9 @@ Vedi `requirements.txt`:
 ```
 capstone_project/
 ├── app.py              # Webapp Streamlit
-├── config.py           # Configurazione
+├── config.py           # Configurazione (modello, soglie, testi delle feature, lotti di esempio)
+├── .streamlit/
+│   └── config.toml     # Tema grafico
 ├── model_utils.py      # Utilità modello MLflow
 ├── development.ipynb   # Training del modello
 ├── mlruns/             # MLflow tracking

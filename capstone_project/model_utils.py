@@ -3,11 +3,12 @@ Utilità per caricamento modello MLflow e predizioni
 """
 import mlflow
 import mlflow.sklearn
+import numpy as np
 import pandas as pd
 import json
 import joblib
 from pathlib import Path
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 import config
 
 
@@ -217,8 +218,9 @@ def predict_wine_quality(model, features: Dict[str, float]) -> Tuple[int, float]
     Returns:
         tuple: (classe_predetta, probabilità_alta_qualità)
     """
-    # Crea DataFrame con le features
+    # Crea DataFrame con le features, nello stesso ordine usato in training
     df = pd.DataFrame([features])
+    df = df[extract_feature_names_from_model(model)]
     
     # Predizione
     prediction = model.predict(df)[0]
@@ -227,37 +229,41 @@ def predict_wine_quality(model, features: Dict[str, float]) -> Tuple[int, float]
     return int(prediction), float(probability)
 
 
-def get_quality_recommendation(probability: float) -> Tuple[str, str, str]:
+def get_quality_level(probability: float) -> str:
     """
-    Restituisce la raccomandazione basata sulla probabilità.
+    Restituisce la chiave del livello di qualità (vedi config.QUALITY_LEVELS).
     
     Args:
         probability: Probabilità di alta qualità (0-1)
         
     Returns:
-        tuple: (livello, raccomandazione, colore)
+        str: "excellent", "good", "medium" oppure "low"
     """
-    if probability >= config.QUALITY_THRESHOLDS["excellent"]:
-        return (
-            "Eccellente",
-            "🍷 **Affinamento in Barrique** - Lotto ideale per invecchiamento in cantina di pregio",
-            config.COLORS["excellent"]
-        )
-    elif probability >= config.QUALITY_THRESHOLDS["good"]:
-        return (
-            "Buono",
-            "🍇 **Affinamento Controllato** - Lotto promettente, consigliato affinamento breve",
-            config.COLORS["good"]
-        )
-    elif probability >= config.QUALITY_THRESHOLDS["medium"]:
-        return (
-            "Medio",
-            "📦 **Imbottigliamento Diretto** - Lotto da commercializzare senza affinamento",
-            config.COLORS["medium"]
-        )
+    for level in ["excellent", "good", "medium"]:
+        if probability >= config.QUALITY_THRESHOLDS[level]:
+            return level
+    return "low"
+
+
+def get_feature_importance(model) -> Optional[pd.Series]:
+    """
+    Importanza delle feature secondo il modello, normalizzata a somma 1.
+    
+    Usa feature_importances_ (alberi, foreste, boosting) oppure il valore assoluto
+    di coef_ (modelli lineari) dell'ultimo step della pipeline.
+    
+    Returns:
+        pd.Series indicizzata per feature, oppure None se il modello non la espone
+    """
+    estimator = model.steps[-1][1] if hasattr(model, "steps") else model
+    if hasattr(estimator, "feature_importances_"):
+        values = np.asarray(estimator.feature_importances_, dtype=float)
+    elif hasattr(estimator, "coef_"):
+        values = np.abs(np.asarray(estimator.coef_, dtype=float)).reshape(-1)
     else:
-        return (
-            "Base",
-            "⚗️ **Assemblaggio** - Lotto da utilizzare per blend o prodotti entry-level",
-            config.COLORS["low"]
-        )
+        return None
+    
+    feature_names = extract_feature_names_from_model(model)
+    if len(values) != len(feature_names) or values.sum() == 0:
+        return None
+    return pd.Series(values / values.sum(), index=feature_names).sort_values(ascending=False)

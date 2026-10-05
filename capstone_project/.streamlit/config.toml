@@ -1,0 +1,41 @@
+# Tema "cantina": carta avorio, bordeaux e oro, titoli con grazie.
+# Streamlit legge questo file anche quando l'app è lanciata da un'altra cartella
+# (config accanto ad app.py), quindi vale sia in locale sia su Streamlit Cloud.
+
+[theme]
+base = "light"
+primaryColor = "#7B1E3A"
+backgroundColor = "#FBF7F1"
+secondaryBackgroundColor = "#F2E8DA"
+textColor = "#2B1A1F"
+borderColor = "#E3D3BF"
+linkColor = "#7B1E3A"
+linkUnderline = false
+showWidgetBorder = true
+baseRadius = "large"
+buttonRadius = "full"
+
+font = "Lato:https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap"
+headingFont = "'Playfair Display':https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+
+# Colori dei badge di qualità: Eccellente / Buono / Medio / Base
+redColor = "#8E1B3B"
+orangeColor = "#B5612A"
+yellowColor = "#A9821A"
+grayColor = "#7A6E68"
+greenColor = "#4E7D3A"
+blueColor = "#3F5E7A"
+violetColor = "#6B3F7D"
+
+chartCategoricalColors = ["#7B1E3A", "#C9A227", "#4E7D3A", "#B5612A", "#3F5E7A", "#A8556B", "#7A6E68"]
+
+[theme.sidebar]
+backgroundColor = "#3A0E1C"
+secondaryBackgroundColor = "#4A1828"
+codeBackgroundColor = "#4A1828"
+codeTextColor = "#E3B96A"
+textColor = "#F5E9DC"
+borderColor = "#5E2638"
+primaryColor = "#E3B96A"
+linkColor = "#E3B96A"
