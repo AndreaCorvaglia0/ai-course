@@ -284,6 +284,12 @@ def make_prediction(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     X = pd.DataFrame([input_dict])
     X = X.reindex(columns=original_features)
 
+    # Le categorie mancanti arrivano dalla UI come stringa "nan": le riportiamo a NaN,
+    # altrimenti l'encoder le tratta come categoria sconosciuta (= la prima categoria)
+    for col in config["categorical_features"]:
+        if col in X.columns:
+            X[col] = X[col].astype(object).where(X[col] != "nan", np.nan)
+
     # Caso classificazione
     if hasattr(pipeline, "predict_proba"):
         proba = pipeline.predict_proba(X)[0]
