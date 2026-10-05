@@ -81,6 +81,26 @@
     margin: 0 0 1.5rem 0;
 }
 
+.course-note {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.5rem 0;
+}
+
+.course-note a,
+.footer a {
+    color: #a0c4ff;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(160, 196, 255, 0.4);
+}
+
+.course-note a:hover,
+.footer a:hover {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+}
+
 .hero-badges {
     display: flex;
     gap: 0.75rem;
@@ -103,6 +123,70 @@
 .badge:hover {
     background: rgba(102, 126, 234, 0.3);
     transform: translateY(-2px);
+}
+
+.hero-subtitle strong {
+    color: var(--text-primary);
+}
+
+/* ============================================
+   USAGE CARDS (when / who / what)
+   ============================================ */
+.usage-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin: 0 0 0.75rem 0;
+}
+
+.usage-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 15px;
+    padding: 1.1rem 1.25rem;
+}
+
+.usage-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    color: #a0c4ff;
+    margin-bottom: 0.4rem;
+}
+
+.usage-card p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.usage-card strong {
+    color: var(--text-primary);
+}
+
+.usage-footnote {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin: 0 0 2rem 0;
+}
+
+/* Input groups */
+.group-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 1.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.group-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
 }
 
 /* ============================================
@@ -236,9 +320,40 @@
     box-shadow: 0 0 0 2px rgba(159, 122, 234, 0.2) !important;
 }
 
+/* Selected values: white text on the dark boxes */
+[data-testid="stSelectbox"] input {
+    color: var(--text-primary) !important;
+    -webkit-text-fill-color: var(--text-primary) !important;
+}
+
+[data-testid="stSelectbox"] button {
+    color: var(--text-secondary) !important;
+}
+
+/* Feature descriptions under each input */
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--text-secondary) !important;
+    font-size: 0.85rem !important;
+}
+
+[data-testid="stCaptionContainer"] code {
+    background: rgba(160, 196, 255, 0.12) !important;
+    color: #a0c4ff !important;
+}
+
+[data-testid="stCaptionContainer"] strong {
+    color: var(--text-primary) !important;
+}
+
 /* Slider styling */
 [data-testid="stSlider"] {
     padding: 0.5rem 0 !important;
+}
+
+[data-testid="stSliderThumbValue"],
+[data-testid="stSliderTickBar"] div {
+    color: var(--text-primary) !important;
 }
 
 [data-testid="stSlider"] .st-emotion-cache-1gulkj5,
@@ -283,6 +398,19 @@ button[kind="primary"]:hover {
 
 button[kind="primary"]:active {
     transform: translateY(0px) !important;
+}
+
+/* Example customer buttons */
+button[kind="secondary"] {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(102, 126, 234, 0.5) !important;
+    border-radius: 10px !important;
+}
+
+button[kind="secondary"]:hover {
+    border-color: var(--accent-purple) !important;
+    background: rgba(102, 126, 234, 0.2) !important;
 }
 
 /* ============================================
@@ -406,6 +534,51 @@ button[kind="primary"]:active {
     box-shadow: 0 0 10px rgba(254, 225, 64, 0.6);
 }
 
+.probability-scale {
+    display: flex;
+    justify-content: space-between;
+    margin: -1.25rem 0 1.5rem 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   SUGGESTED ACTION & NOTE
+   ============================================ */
+.prediction-action {
+    text-align: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.action-detail {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.prediction-note {
+    margin-top: 1.5rem;
+    padding: 0.9rem 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.prediction-note strong {
+    color: var(--text-primary);
+}
+
 /* ============================================
    PREDICTION FOOTER
    ============================================ */
@@ -452,7 +625,7 @@ button[kind="primary"]:active {
 }
 
 .footer p {
-    margin: 0;
+    margin: 0 0 0.4rem 0;
     font-size: 0.9rem;
 }
 
@@ -478,6 +651,16 @@ button[kind="primary"]:active {
     .model-info-bar {
         flex-direction: column;
         gap: 1rem;
+    }
+
+    .usage-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .probability-scale {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
     }
     
     .section-header {
