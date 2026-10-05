@@ -1,4 +1,16 @@
-mlruns
-Webapp/__pycache__/
-**.csv
+# Python
+__pycache__/
 .venv/
+
+# Data
+**.csv
+
+# MLflow: the runs of the course notebooks (T4, E4) stay local.
+# capstone_project/mlruns is NOT ignored: students push it with their capstone
+# so the deployed webapp can load the model from the registry.
+/mlruns/
+
+# OS and local tooling
+.DS_Store
+.agents/
+.claude/
