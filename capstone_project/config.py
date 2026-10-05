@@ -1,7 +1,11 @@
 """
 Configurazione webapp Wine Quality Prediction
 """
+import os
 from pathlib import Path
+
+# Opt-in necessario nelle versioni recenti per usare il backend file legacy.
+os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
 # Percorsi
 BASE_DIR = Path(__file__).resolve().parent

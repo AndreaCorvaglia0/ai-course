@@ -10,7 +10,7 @@ Webapp Streamlit moderna ed elegante che utilizza modelli di Machine Learning pe
 
 ```bash
 cd capstone_project
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ## 🎯 Funzionalità
@@ -35,10 +35,10 @@ Il sistema fornisce 4 livelli di raccomandazione:
 
 | Livello | Probabilità | Raccomandazione |
 |---------|-------------|-----------------|
-| 🍷 **Eccellente** | ≥ 75% | Affinamento in Barrique - Invecchiamento in cantina di pregio |
-| 🍇 **Buono** | 50-74% | Affinamento Controllato - Affinamento breve |
-| 📦 **Medio** | 30-49% | Imbottigliamento Diretto - Commercializzazione immediata |
-| ⚗️ **Base** | < 30% | Assemblaggio - Utilizzo per blend |
+| 🍷 **Eccellente** | ≥ 50% | Affinamento in Barrique - Invecchiamento in cantina di pregio |
+| 🍇 **Buono** | 30-49% | Affinamento Controllato - Affinamento breve |
+| 📦 **Medio** | 15-29% | Imbottigliamento Diretto - Commercializzazione immediata |
+| ⚗️ **Base** | < 15% | Assemblaggio - Utilizzo per blend |
 
 ### Design Moderno
 - **Tema cantina**: sfondo gradient bordeaux/marrone
@@ -57,9 +57,9 @@ MLFLOW_MODEL_ALIAS = "production"
 
 # Soglie di qualità
 QUALITY_THRESHOLDS = {
-    "excellent": 0.75,
-    "good": 0.50,
-    "medium": 0.30
+    "excellent": 0.50,
+    "good": 0.30,
+    "medium": 0.15
 }
 ```
 
@@ -107,7 +107,7 @@ capstone_project/
 ### Opzione 1: Con MLflow Registry (Raccomandato)
 ```bash
 # Il modello viene caricato automaticamente dal registry
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ### Opzione 2: Con Modello Locale
@@ -116,7 +116,7 @@ Se MLflow non è disponibile, crea una cartella `model/`:
 mkdir model
 # Copia il tuo modello (pipeline.pkl o model.pkl)
 cp /path/to/your/model.pkl model/
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 La webapp rileverà automaticamente la fonte migliore disponibile.
