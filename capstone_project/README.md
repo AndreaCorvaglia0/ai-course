@@ -10,7 +10,7 @@ Webapp Streamlit moderna ed elegante che utilizza modelli di Machine Learning pe
 
 ```bash
 cd capstone_project
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ## 🎯 Funzionalità
@@ -18,33 +18,38 @@ streamlit run app.py
 ### Caricamento Dinamico del Modello
 - **Strategia a fallback intelligente**:
   1. Prova a caricare dal **MLflow Registry** (`wine_clf@production`)
-  2. Se fallisce, cerca una cartella `model/` nella working directory
+  2. Se la cartella `mlruns` arriva da un'altra macchina (clone GitHub, Streamlit Cloud), cerca gli artefatti del modello registrato nella `mlruns` locale
+  3. Se fallisce, cerca una cartella `model/` nella working directory
 - Estrae dinamicamente le feature richieste dal modello
 - Nome del modello configurabile in `config.py`
 - Supporta formati: `.pkl`, `.joblib`
 
-### Interface Intelligente
-- **11 sliders interattivi** per parametri chimico-fisici
-- **Tooltip informativi** (hover su ⓘ) per ogni parametro
+### Interfaccia
+- **Slider raggruppati** (Acidità · Corpo e dolcezza · Conservanti e sali) con valori e unità di misura leggibili
+- **Nota sotto ogni parametro**: cosa misura, valori tipici del dataset (5°–95° percentile) e valore mediano dei vini di alta qualità
 - Visualizza solo le feature richieste dal modello specifico
-- **🎲 Generazione Random**: crea campioni di vino casuali per testare il modello
-- **Predizione Automatica**: aggiorna la valutazione istantaneamente al cambio dei parametri
+- **Lotti di esempio** (profili mediani reali del dataset) e **lotto casuale** dentro i range tipici
+- **Predizione automatica**: la valutazione si aggiorna a ogni modifica dei parametri
+- **Profilo del lotto**: grafico che confronta il lotto con i valori tipici e con i vini di alta qualità
+- **Cosa guarda il modello**: importanza delle feature (`feature_importances_` o coefficienti)
+- **Sidebar del modello**: nome, alias, versione, run e metriche sul test set (`accuracy`, `precision`, `recall`, `f1_score`, `roc_auc`)
 
 ### Valutazione Dinamica
 Il sistema fornisce 4 livelli di raccomandazione:
 
 | Livello | Probabilità | Raccomandazione |
 |---------|-------------|-----------------|
-| 🍷 **Eccellente** | ≥ 75% | Affinamento in Barrique - Invecchiamento in cantina di pregio |
-| 🍇 **Buono** | 50-74% | Affinamento Controllato - Affinamento breve |
-| 📦 **Medio** | 30-49% | Imbottigliamento Diretto - Commercializzazione immediata |
-| ⚗️ **Base** | < 30% | Assemblaggio - Utilizzo per blend |
+| 🍷 **Eccellente** | ≥ 50% | Affinamento in Barrique - Invecchiamento in cantina di pregio |
+| 🍇 **Buono** | 30-49% | Affinamento Controllato - Affinamento breve |
+| 📦 **Medio** | 15-29% | Imbottigliamento Diretto - Commercializzazione immediata |
+| ⚗️ **Base** | < 15% | Assemblaggio - Utilizzo per blend |
 
-### Design Moderno
-- **Tema cantina**: sfondo gradient bordeaux/marrone
-- **Colori dinamici**: cambiano in base alla qualità predetta
-- **Font eleganti**: Playfair Display + Lato
-- **Layout responsivo**: 2 colonne (input | risultato)
+### Design
+- **Tema cantina** in `.streamlit/config.toml`: carta avorio, bordeaux e oro, sidebar bordeaux scuro
+- **Font**: Playfair Display (titoli) + Lato (testo)
+- **Badge colorati** per il livello di qualità
+- **Layout responsivo**: 2 colonne su desktop (input | valutazione), una colonna su smartphone
+- Solo componenti nativi Streamlit, nessun CSS personalizzato
 
 ## ⚙️ Configurazione
 
@@ -57,9 +62,9 @@ MLFLOW_MODEL_ALIAS = "production"
 
 # Soglie di qualità
 QUALITY_THRESHOLDS = {
-    "excellent": 0.75,
-    "good": 0.50,
-    "medium": 0.30
+    "excellent": 0.50,
+    "good": 0.30,
+    "medium": 0.15
 }
 ```
 
@@ -93,7 +98,9 @@ Vedi `requirements.txt`:
 ```
 capstone_project/
 ├── app.py              # Webapp Streamlit
-├── config.py           # Configurazione
+├── config.py           # Configurazione (modello, soglie, testi delle feature, lotti di esempio)
+├── .streamlit/
+│   └── config.toml     # Tema grafico
 ├── model_utils.py      # Utilità modello MLflow
 ├── development.ipynb   # Training del modello
 ├── mlruns/             # MLflow tracking
@@ -107,7 +114,7 @@ capstone_project/
 ### Opzione 1: Con MLflow Registry (Raccomandato)
 ```bash
 # Il modello viene caricato automaticamente dal registry
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ### Opzione 2: Con Modello Locale
@@ -116,7 +123,7 @@ Se MLflow non è disponibile, crea una cartella `model/`:
 mkdir model
 # Copia il tuo modello (pipeline.pkl o model.pkl)
 cp /path/to/your/model.pkl model/
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 La webapp rileverà automaticamente la fonte migliore disponibile.

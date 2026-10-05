@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 import mlflow
@@ -7,12 +10,17 @@ from sklearn.datasets import fetch_openml
 # --------------------------------------------------
 # Configurazione MLflow e dataset
 # --------------------------------------------------
-TRACKING_URI = "file:../mlruns"
+# Cartella mlruns nella root del progetto, indipendente da dove si lancia l'app
+MLRUNS_DIR = Path(__file__).resolve().parent.parent / "mlruns"
+TRACKING_URI = MLRUNS_DIR.as_uri()
 MODEL_NAME = "house_sales_rf_prod"
 MODEL_ALIAS = "production"
 MODEL_URI = f"models:/{MODEL_NAME}@{MODEL_ALIAS}"
 
 OPENML_DATA_ID = 42092
+
+# Opt-in necessario nelle versioni recenti per usare il backend file legacy.
+os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
 st.set_page_config(
     page_title="House Sales – Predizione del prezzo di vendita",
@@ -59,7 +67,7 @@ except Exception as e:
         "Verifica che:\n"
         f"- il modello '{MODEL_NAME}' esista nel registry\n"
         f"- abbia l'alias '{MODEL_ALIAS}'\n"
-        "- la cartella '../mlruns' sia quella giusta."
+        "- la cartella 'mlruns' sia nella root del progetto."
     )
     st.exception(e)
     st.stop()

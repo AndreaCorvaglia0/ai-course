@@ -3,17 +3,45 @@ Utilità per caricamento modello MLflow e predizioni
 """
 import mlflow
 import mlflow.sklearn
+import numpy as np
 import pandas as pd
 import json
 import joblib
 from pathlib import Path
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 import config
 
 
 def setup_mlflow() -> None:
     """Configura MLflow tracking URI"""
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
+
+
+def load_registry_model_from_local_mlruns():
+    """
+    Carica il modello registrato cercando gli artefatti nella cartella mlruns locale.
+
+    MLflow salva path assoluti nei metadati (es. file:///Users/<utente>/...): se la cartella
+    mlruns arriva da un'altra macchina (clone GitHub, Streamlit Cloud) quei path non esistono.
+    I metadati del registry restano validi, quindi si risale al modello e lo si cerca qui.
+    """
+    mlruns_dir = config.BASE_DIR / "mlruns"
+    client = mlflow.MlflowClient()
+    version = client.get_model_version_by_alias(config.MLFLOW_MODEL_NAME, config.MLFLOW_MODEL_ALIAS)
+
+    candidates = []
+    # MLflow 3: source = "models:/<model_id>" -> mlruns/<exp>/models/<model_id>/artifacts
+    model_id = getattr(version, "model_id", None) or str(version.source).removeprefix("models:/")
+    if model_id:
+        candidates += list(mlruns_dir.glob(f"*/models/{model_id}/artifacts"))
+    # MLflow 2: modello salvato tra gli artefatti della run -> mlruns/<exp>/<run_id>/artifacts/model
+    if version.run_id:
+        candidates += list(mlruns_dir.glob(f"*/{version.run_id}/artifacts/model"))
+
+    for path in candidates:
+        if (path / "MLmodel").exists():
+            return mlflow.sklearn.load_model(str(path))
+    raise FileNotFoundError(f"Artefatti del modello non trovati in {mlruns_dir}")
 
 
 def load_model_from_mlflow():
@@ -35,7 +63,13 @@ def load_model_from_mlflow():
         model_uri = f"models:/{config.MLFLOW_MODEL_NAME}@{config.MLFLOW_MODEL_ALIAS}"
         
         # Carica il modello dal registry
-        model = mlflow.sklearn.load_model(model_uri)
+        try:
+            model = mlflow.sklearn.load_model(model_uri)
+            source = "MLflow Registry"
+        except Exception:
+            # mlruns copiata da un'altra macchina: path assoluti non validi
+            model = load_registry_model_from_local_mlruns()
+            source = "MLflow Registry (mlruns locale)"
         
         # Estrai feature names DIRETTAMENTE dal modello caricato
         feature_names = extract_feature_names_from_model(model)
@@ -60,7 +94,7 @@ def load_model_from_mlflow():
                 "model_name": config.MLFLOW_MODEL_NAME,
                 "model_version": version,
                 "model_alias": config.MLFLOW_MODEL_ALIAS,
-                "source": "MLflow Registry",
+                "source": source,
                 "accuracy": run.data.metrics.get("accuracy", 0.0),
                 "precision": run.data.metrics.get("precision", 0.0),
                 "recall": run.data.metrics.get("recall", 0.0),
@@ -75,7 +109,7 @@ def load_model_from_mlflow():
                 "model_name": config.MLFLOW_MODEL_NAME,
                 "model_version": "N/A",
                 "model_alias": config.MLFLOW_MODEL_ALIAS,
-                "source": "MLflow Registry",
+                "source": source,
                 "accuracy": 0.0,
                 "precision": 0.0,
                 "recall": 0.0,
@@ -184,8 +218,9 @@ def predict_wine_quality(model, features: Dict[str, float]) -> Tuple[int, float]
     Returns:
         tuple: (classe_predetta, probabilità_alta_qualità)
     """
-    # Crea DataFrame con le features
+    # Crea DataFrame con le features, nello stesso ordine usato in training
     df = pd.DataFrame([features])
+    df = df[extract_feature_names_from_model(model)]
     
     # Predizione
     prediction = model.predict(df)[0]
@@ -194,37 +229,41 @@ def predict_wine_quality(model, features: Dict[str, float]) -> Tuple[int, float]
     return int(prediction), float(probability)
 
 
-def get_quality_recommendation(probability: float) -> Tuple[str, str, str]:
+def get_quality_level(probability: float) -> str:
     """
-    Restituisce la raccomandazione basata sulla probabilità.
+    Restituisce la chiave del livello di qualità (vedi config.QUALITY_LEVELS).
     
     Args:
         probability: Probabilità di alta qualità (0-1)
         
     Returns:
-        tuple: (livello, raccomandazione, colore)
+        str: "excellent", "good", "medium" oppure "low"
     """
-    if probability >= config.QUALITY_THRESHOLDS["excellent"]:
-        return (
-            "Eccellente",
-            "🍷 **Affinamento in Barrique** - Lotto ideale per invecchiamento in cantina di pregio",
-            config.COLORS["excellent"]
-        )
-    elif probability >= config.QUALITY_THRESHOLDS["good"]:
-        return (
-            "Buono",
-            "🍇 **Affinamento Controllato** - Lotto promettente, consigliato affinamento breve",
-            config.COLORS["good"]
-        )
-    elif probability >= config.QUALITY_THRESHOLDS["medium"]:
-        return (
-            "Medio",
-            "📦 **Imbottigliamento Diretto** - Lotto da commercializzare senza affinamento",
-            config.COLORS["medium"]
-        )
+    for level in ["excellent", "good", "medium"]:
+        if probability >= config.QUALITY_THRESHOLDS[level]:
+            return level
+    return "low"
+
+
+def get_feature_importance(model) -> Optional[pd.Series]:
+    """
+    Importanza delle feature secondo il modello, normalizzata a somma 1.
+    
+    Usa feature_importances_ (alberi, foreste, boosting) oppure il valore assoluto
+    di coef_ (modelli lineari) dell'ultimo step della pipeline.
+    
+    Returns:
+        pd.Series indicizzata per feature, oppure None se il modello non la espone
+    """
+    estimator = model.steps[-1][1] if hasattr(model, "steps") else model
+    if hasattr(estimator, "feature_importances_"):
+        values = np.asarray(estimator.feature_importances_, dtype=float)
+    elif hasattr(estimator, "coef_"):
+        values = np.abs(np.asarray(estimator.coef_, dtype=float)).reshape(-1)
     else:
-        return (
-            "Base",
-            "⚗️ **Assemblaggio** - Lotto da utilizzare per blend o prodotti entry-level",
-            config.COLORS["low"]
-        )
+        return None
+    
+    feature_names = extract_feature_names_from_model(model)
+    if len(values) != len(feature_names) or values.sum() == 0:
+        return None
+    return pd.Series(values / values.sum(), index=feature_names).sort_values(ascending=False)

@@ -1,407 +1,376 @@
 """
 🍷 Wine Quality Assessment - Sistema di Valutazione per Cantina
 Webapp per la valutazione della qualità del vino e decisioni di affinamento
+
+L'aspetto (colori, font, bordi) è definito in .streamlit/config.toml.
 """
 
-import streamlit as st
-import pandas as pd
+import math
+
+import altair as alt
 import numpy as np
+import pandas as pd
+import streamlit as st
+
+import config
 from model_utils import (
+    get_feature_importance,
+    get_quality_level,
     load_model_from_mlflow,
     predict_wine_quality,
-    get_quality_recommendation
 )
-import config
 
 # ==================== CONFIGURAZIONE PAGINA ====================
 st.set_page_config(
     page_title="Wine Quality Assessment",
     page_icon="🍷",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto",
 )
 
-# ==================== CUSTOM CSS ====================
-st.markdown("""
-<style>
-    /* Font e tema generale */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400&display=swap');
-    
-    .main {
-        background: linear-gradient(135deg, #1a1a1a 0%, #2d1810 100%);
-    }
-    
-    /* Header principale */
-    .wine-header {
-        text-align: center;
-        padding: 2rem 0;
-        font-family: 'Playfair Display', serif;
-        color: #f4e8d8;
-        border-bottom: 2px solid #8B0000;
-        margin-bottom: 2rem;
-    }
-    
-    .wine-header h1 {
-        font-size: 3rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-        color: #CD5C5C;
-    }
-    
-    .wine-header p {
-        font-size: 1.1rem;
-        font-family: 'Lato', sans-serif;
-        color: #d4c5b0;
-        font-weight: 300;
-    }
-    
-    /* Card risultato */
-    .result-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 2.5rem;
-        margin: 2rem 0;
-        border: 2px solid;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
-    }
-    
-    .result-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-    }
-    
-    /* Probability display */
-    .prob-display {
-        text-align: center;
-        font-family: 'Playfair Display', serif;
-        margin: 1.5rem 0;
-    }
-    
-    .prob-value {
-        font-size: 4.5rem;
-        font-weight: 700;
-        line-height: 1;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    }
-    
-    .prob-label {
-        font-size: 1.2rem;
-        font-family: 'Lato', sans-serif;
-        margin-top: 0.5rem;
-        opacity: 0.9;
-    }
-    
-    /* Recommendation box */
-    .recommendation {
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin-top: 1.5rem;
-        font-family: 'Lato', sans-serif;
-        font-size: 1.1rem;
-        line-height: 1.6;
-    }
-    
-    /* Model info sidebar */
-    .model-info {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 1rem 0;
-        font-family: 'Lato', sans-serif;
-        font-size: 0.9rem;
-    }
-    
-    .metric-box {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 8px;
-        padding: 0.5rem;
-        margin: 0.5rem 0;
-        text-align: center;
-    }
-    
-    /* Slider styling */
-    .stSlider > div > div > div {
-        background: linear-gradient(90deg, #8B0000, #CD5C5C);
-    }
-    
-    /* Feature label con info icon */
-    .feature-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.3rem;
-    }
-    
-    .info-icon {
-        cursor: help;
-        font-size: 1rem;
-        color: #CD5C5C;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # ==================== CARICAMENTO MODELLO ====================
 @st.cache_resource
 def load_model():
     """Carica il modello MLflow (cached)"""
-    try:
-        model, run_info, feature_names = load_model_from_mlflow()
-        return model, run_info, feature_names
-    except Exception as e:
-        st.error(f"❌ Errore nel caricamento del modello: {str(e)}")
-        st.stop()
+    return load_model_from_mlflow()
 
-model, run_info, model_features = load_model()
 
-# ==================== HEADER ====================
-st.markdown("""
-<div class="wine-header">
-    <h1>Valutazione Qualità Vino</h1>
-    <p>Sistema di supporto decisionale per l'affinamento in cantina</p>
-</div>
-""", unsafe_allow_html=True)
+try:
+    model, run_info, model_features = load_model()
+except Exception as e:
+    st.title("Valutazione qualità del vino", icon=":material/wine_bar:")
+    st.error("Nessun modello disponibile.", icon=":material/error:")
+    st.markdown(
+        "Esegui prima `development.ipynb`: allena il modello, registralo come "
+        f"`{config.MLFLOW_MODEL_NAME}` con alias `@{config.MLFLOW_MODEL_ALIAS}` "
+        "ed esporta la cartella `model/` con l'ultima cella del notebook."
+    )
+    with st.expander("Dettagli dell'errore", icon=":material/bug_report:"):
+        st.code(str(e), language=None)
+    st.stop()
 
-# ==================== BOTTONI IN ALTO ====================
-col_btn1, col_btn2 = st.columns([3, 1], gap="small")
-with col_btn1:
-    analyze_button = st.button("🔬 Analizza Lotto", type="primary", key="analyze")
-with col_btn2:
-    random_button = st.button("🎲 Random", key="random")
 
-# Gestione stato random
-if random_button:
-    st.session_state.random_trigger = not st.session_state.get('random_trigger', False)
+# ==================== FUNZIONI DI SUPPORTO ====================
+def feature_label(feature: str) -> str:
+    """Nome italiano della feature con unità di misura."""
+    label = config.FEATURE_LABELS.get(feature, feature.replace("_", " ").capitalize())
+    unit = config.FEATURE_UNITS.get(feature, "")
+    return f"{label} ({unit})" if unit else label
 
-st.markdown("<br>", unsafe_allow_html=True)
 
-# ==================== LAYOUT ====================
-col_input, col_result = st.columns([1, 1], gap="large")
+def format_value(feature: str, value: float) -> str:
+    """Valore formattato con gli stessi decimali dello slider."""
+    _, fmt = config.FEATURE_STEPS.get(feature, (None, "%.2f"))
+    return fmt % value
 
-# ==================== COLONNA INPUT (SINISTRA) ====================
-with col_input:
-    st.markdown("### Parametri Chimico-Fisici")
-    
-    # Crea dizionario per raccogliere i valori
-    feature_values = {}
-    
-    # Crea sliders per ogni feature richiesta dal modello
+
+def snap(feature: str, value: float) -> float:
+    """Arrotonda al passo dello slider e resta dentro il range."""
+    low, high = config.FEATURE_RANGES[feature]
+    step, _ = config.FEATURE_STEPS.get(feature, ((high - low) / 100, None))
+    decimals = max(0, -math.floor(math.log10(step)))
+    value = min(max(value, low), high)
+    return round(round(value / step) * step, decimals)
+
+
+def set_lot(values: dict) -> None:
+    """Copia i valori di un lotto negli slider (callback dei bottoni)."""
+    for feature, value in values.items():
+        if feature in model_features and feature in config.FEATURE_RANGES:
+            st.session_state[f"input_{feature}"] = snap(feature, float(value))
+
+
+def random_lot() -> None:
+    """Lotto casuale con valori dentro i range tipici del dataset (5°-95° percentile)."""
+    rng = np.random.default_rng()
+    values = {}
     for feature in model_features:
-        if feature in config.FEATURE_RANGES:
-            min_val, max_val = config.FEATURE_RANGES[feature]
-            default_val = config.FEATURE_DEFAULTS.get(feature, (min_val + max_val) / 2)
-            
-            # Se random è stato cliccato, genera valore random
-            if st.session_state.get('random_trigger', False):
-                # Genera valore random nell'intervallo
-                default_val = np.random.uniform(min_val, max_val)
-            
-            unit = config.FEATURE_UNITS.get(feature, "")
-            description = config.FEATURE_DESCRIPTIONS.get(feature, "")
-            
-            # Nome display pulito
-            display_name = feature.replace("_", " ").title()
-            
-            # Label con icona info e tooltip
-            label_text = f"{display_name} ({unit})" if unit else display_name
-            
-            # Slider con help integrato (hovering)
-            value = st.slider(
-                label_text,
-                min_value=float(min_val),
-                max_value=float(max_val),
-                value=float(default_val),
-                step=(max_val - min_val) / 100,
-                key=f"slider_{feature}_{st.session_state.get('random_trigger', False)}",  # Key dinamica per re-render
-                help=f"ℹ️ {description}",
-                on_change=lambda: st.session_state.update({'auto_predict': True})  # Trigger auto-predict
-            )
-            
-            feature_values[feature] = value
-    
-    # Reset random trigger dopo il render
-    if st.session_state.get('random_trigger'):
-        st.session_state.random_trigger = False
+        if feature in config.FEATURE_TYPICAL:
+            p05, p95, _ = config.FEATURE_TYPICAL[feature]
+            values[feature] = rng.uniform(p05, p95)
+    set_lot(values)
 
-# ==================== COLONNA RISULTATO (DESTRA) ====================
-with col_result:
-    st.markdown("### Valutazione e Raccomandazione")
-    
-    # Predizione automatica dopo il primo run o cambio parametri
-    should_predict = analyze_button or st.session_state.get('auto_predict', False) or st.session_state.get('has_predicted', False)
-    
-    if should_predict:
-        # Segna che abbiamo fatto almeno una predizione
-        st.session_state.has_predicted = True
-        
-        with st.spinner("Analisi in corso..."):
-            # Predizione
-            prediction, probability = predict_wine_quality(model, feature_values)
-            level, recommendation, color = get_quality_recommendation(probability)
-            
-            # CAMBIO COLORE BACKGROUND DELL'INTERA PAGINA
-            st.markdown(f"""
-            <style>
-                .main {{
-                    background: linear-gradient(135deg, {color}15 0%, {color}05 100%) !important;
-                }}
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # RISULTATO PRINCIPALE - Grande e chiaro
-            st.markdown(f"""
-            <div style="
-                background: {color};
-                border-radius: 20px;
-                padding: 3rem 2rem;
-                text-align: center;
-                margin: 2rem 0;
-                box-shadow: 0 10px 40px {color}80;
-            ">
-                <div style="font-size: 5rem; font-weight: 700; color: white; line-height: 1;">
-                    {probability:.0%}
-                </div>
-                <div style="font-size: 1.3rem; color: white; margin-top: 1rem; opacity: 0.95;">
-                    Probabilità Alta Qualità
-                </div>
-                <div style="
-                    background: rgba(255,255,255,0.2);
-                    border-radius: 10px;
-                    padding: 0.8rem;
-                    margin-top: 2rem;
-                    font-size: 1.8rem;
-                    font-weight: 600;
-                    color: white;
-                ">
-                    {level}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # RACCOMANDAZIONE - Box separato
-            st.markdown(f"""
-            <div style="
-                background: white;
-                border-left: 6px solid {color};
-                border-radius: 10px;
-                padding: 2rem;
-                margin: 2rem 0;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            ">
-                <div style="font-size: 1.2rem; line-height: 1.6; color: #333;">
-                    {recommendation}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Progress bar
-            st.progress(probability)
-    
+
+def feature_input(feature: str) -> float:
+    """Slider della feature con la nota sul suo contenuto sotto."""
+    key = f"input_{feature}"
+    if feature in config.FEATURE_RANGES:
+        low, high = config.FEATURE_RANGES[feature]
+        step, fmt = config.FEATURE_STEPS.get(feature, ((high - low) / 100, "%.2f"))
+        value = st.slider(
+            feature_label(feature),
+            min_value=float(low),
+            max_value=float(high),
+            step=float(step),
+            format=fmt,
+            key=key,
+        )
     else:
-        # Placeholder elegante quando non c'è predizione
-        st.markdown("""
-        <div style="
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            border: 2px dashed #696969;
-            padding: 4rem 2rem;
-            text-align: center;
-            margin: 2rem 0;
-        ">
-            <div style="font-size: 4rem; opacity: 0.3;">
-                🔬
-            </div>
-            <p style="color: #d4c5b0; font-size: 1.1rem; margin-top: 1.5rem; line-height: 1.6;">
-                Imposta i parametri e clicca<br>
-                <strong>"Analizza Lotto"</strong><br>
-                per ottenere la valutazione
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Feature non prevista nel config: input numerico libero
+        value = st.number_input(feature_label(feature), key=key)
+
+    notes = f"`{feature}` · {config.FEATURE_DESCRIPTIONS.get(feature, '')}"
+    if feature in config.FEATURE_TYPICAL:
+        p05, p95, high_quality = config.FEATURE_TYPICAL[feature]
+        unit = config.FEATURE_UNITS.get(feature, "")
+        notes += (
+            f"  \n:material/straighten: Tipico {format_value(feature, p05)}–{format_value(feature, p95)} {unit}"
+            f" · vini di alta qualità: {format_value(feature, high_quality)} {unit}"
+        )
+    st.caption(notes)
+    return value
+
+
+def profile_chart(features: dict) -> alt.Chart:
+    """Posizione del lotto rispetto ai valori tipici del dataset, feature per feature."""
+    rows = []
+    for feature, value in features.items():
+        if feature not in config.FEATURE_TYPICAL:
+            continue
+        p05, p95, high_quality = config.FEATURE_TYPICAL[feature]
+        unit = config.FEATURE_UNITS.get(feature, "")
+        rows.append({
+            "feature": config.FEATURE_LABELS.get(feature, feature),
+            "lotto": float(np.clip((value - p05) / (p95 - p05), -0.3, 1.3)),
+            "alta_qualita": (high_quality - p05) / (p95 - p05),
+            "Il tuo lotto": f"{format_value(feature, value)} {unit}",
+            "Tipico": f"{format_value(feature, p05)}–{format_value(feature, p95)} {unit}",
+            "Vini di alta qualità": f"{format_value(feature, high_quality)} {unit}",
+            "inizio": 0.0,
+            "fine": 1.0,
+        })
+    data = pd.DataFrame(rows)
+    order = list(data["feature"])
+    tooltip = ["feature:N", "Il tuo lotto:N", "Tipico:N", "Vini di alta qualità:N"]
+    x_axis = alt.Axis(
+        values=[0, 1],
+        labelExpr="datum.value == 0 ? '5° percentile' : '95° percentile'",
+        title=None,
+        grid=False,
+    )
+    y = alt.Y("feature:N", sort=order, title=None)
+
+    band = alt.Chart(data).mark_bar(size=12, color="#E8D9C4", cornerRadius=6).encode(
+        x=alt.X("inizio:Q", scale=alt.Scale(domain=[-0.3, 1.3]), axis=x_axis),
+        x2="fine:Q",
+        y=y,
+        tooltip=tooltip,
+    )
+    high_quality_tick = alt.Chart(data).mark_tick(color="#C9A227", thickness=3, size=20).encode(
+        x="alta_qualita:Q", y=y, tooltip=tooltip
+    )
+    lot_point = alt.Chart(data).mark_circle(color="#7B1E3A", size=160, opacity=1).encode(
+        x="lotto:Q", y=y, tooltip=tooltip
+    )
+    return (band + high_quality_tick + lot_point).properties(height=34 * len(data))
+
+
+def importance_chart(importance: pd.Series) -> alt.Chart:
+    """Importanza delle feature per il modello."""
+    data = pd.DataFrame({
+        "feature": [config.FEATURE_LABELS.get(f, f) for f in importance.index],
+        "importanza": importance.values,
+    })
+    return alt.Chart(data).mark_bar(color="#7B1E3A", cornerRadiusEnd=6).encode(
+        x=alt.X("importanza:Q", axis=alt.Axis(format="%", title=None)),
+        y=alt.Y("feature:N", sort="-x", title=None),
+        tooltip=["feature:N", alt.Tooltip("importanza:Q", format=".1%")],
+    ).properties(height=30 * len(data))
+
+
+# ==================== STATO INIZIALE DEGLI SLIDER ====================
+for feature in model_features:
+    if feature in config.FEATURE_RANGES:
+        low, high = config.FEATURE_RANGES[feature]
+        default = config.FEATURE_DEFAULTS.get(feature, (low + high) / 2)
+        st.session_state.setdefault(f"input_{feature}", snap(feature, float(default)))
+    else:
+        st.session_state.setdefault(f"input_{feature}", 0.0)
+
 
 # ==================== SIDEBAR - INFO MODELLO ====================
 with st.sidebar:
-    st.markdown("### Informazioni Modello")
-    
-    st.markdown(f"""
-    <div class="model-info">
-        <strong>Modello:</strong><br>
-        {run_info['model_name']} <span style="color: #CD5C5C;">@{run_info['model_alias']}</span><br><br>
-        <strong>Versione:</strong><br>
-        v{run_info['model_version']}<br><br>
-        <strong>Fonte:</strong><br>
-        {run_info['source']}<br><br>
-        <strong>Run ID:</strong><br>
-        <code>{run_info['run_id'][:8] if run_info['run_id'] not in ['N/A', 'local'] else run_info['run_id']}...</code>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("#### Performance Metriche")
-    
-    metrics_data = [
-        ("Accuracy", run_info['accuracy']),
-        ("Precision", run_info['precision']),
-        ("Recall", run_info['recall']),
-        ("F1 Score", run_info['f1_score']),
-        ("ROC AUC", run_info['roc_auc'])
+    st.header("Il modello", icon=":material/hub:")
+    st.markdown(f"**{run_info['model_name']}** `@{run_info['model_alias']}`")
+    st.caption(f"Versione {run_info['model_version']} · fonte: {run_info['source']}")
+    if run_info["run_id"] not in ("N/A", "local"):
+        st.caption(f"Run `{run_info['run_name']}` · `{run_info['run_id'][:8]}`")
+
+    st.subheader("Performance sul test set")
+    metrics = [
+        ("Accuracy", "accuracy"),
+        ("Precision", "precision"),
+        ("Recall", "recall"),
+        ("F1 score", "f1_score"),
+        ("ROC AUC", "roc_auc"),
     ]
-    
-    for metric_name, metric_value in metrics_data:
-        st.markdown(f"""
-        <div class="metric-box">
-            <strong>{metric_name}</strong><br>
-            <span style="font-size: 1.2rem; color: #CD5C5C;">{metric_value:.3f}</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Info sul dataset
-    st.markdown("### Features Modello")
-    st.markdown(f"""
-    <div style="font-size: 0.9rem; color: #d4c5b0; line-height: 1.6;">
-        Il modello analizza <strong>{len(model_features)}</strong> parametri chimico-fisici:<br><br>
-        {'<br>'.join([f'• {feat.replace("_", " ").title()}' for feat in model_features[:5]])}
-        <br>... e altri {len(model_features) - 5}
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Legenda soglie
-    st.markdown("### Soglie Qualità")
-    st.markdown(f"""
-    <div style="font-size: 0.9rem; line-height: 1.8;">
-        <div style="color: {config.COLORS['excellent']};">
-            ⬤ Eccellente: ≥ {config.QUALITY_THRESHOLDS['excellent']:.0%}
-        </div>
-        <div style="color: {config.COLORS['good']};">
-            ⬤ Buono: ≥ {config.QUALITY_THRESHOLDS['good']:.0%}
-        </div>
-        <div style="color: {config.COLORS['medium']};">
-            ⬤ Medio: ≥ {config.QUALITY_THRESHOLDS['medium']:.0%}
-        </div>
-        <div style="color: {config.COLORS['low']};">
-            ⬤ Base: < {config.QUALITY_THRESHOLDS['medium']:.0%}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("""
-    <div style="font-size: 0.8rem; color: #888; text-align: center; margin-top: 2rem;">
-        🍇 Wine Quality Assessment v1.0<br>
-        Powered by MLflow & Scikit-learn
-    </div>
-    """, unsafe_allow_html=True)
+    if any(run_info[key] for _, key in metrics):
+        metric_cols = st.columns(2)
+        for i, (label, key) in enumerate(metrics):
+            metric_cols[i % 2].metric(label, f"{run_info[key]:.3f}")
+    else:
+        st.caption(
+            "Metriche non disponibili: il modello è stato caricato da file locale, "
+            "oppure le metriche non sono state loggate con i nomi "
+            "`accuracy`, `precision`, `recall`, `f1_score`, `roc_auc`."
+        )
+
+    st.subheader("Il modello usa")
+    st.caption(" · ".join(config.FEATURE_LABELS.get(f, f) for f in model_features))
+
+
+# ==================== HEADER ====================
+st.title("Valutazione qualità del vino", icon=":material/wine_bar:", text_alignment="center")
+st.markdown(
+    "Dalle analisi di laboratorio di un lotto di **Vinho Verde**, stima se diventerà un vino "
+    "di **alta qualità** e se merita l'investimento in **barrique**.",
+    text_alignment="center",
+)
+with st.container(horizontal=True, horizontal_alignment="center"):
+    st.badge("MLflow Model Registry", icon=":material/hub:", color="red")
+    st.badge("Predizione in tempo reale", icon=":material/bolt:", color="orange")
+    st.badge("Progetto capstone", icon=":material/school:", color="gray")
+st.caption(
+    f"Webapp di esempio del corso **{config.COURSE_NAME}** · "
+    f"[Vedi il corso su GitHub]({config.COURSE_REPO_URL})",
+    text_alignment="center",
+)
+
+# Quando / su cosa / cosa ottieni
+usage_cards = [
+    (":material/schedule:", "Quando usarla",
+     "Dopo le **analisi di laboratorio** del lotto, **prima** di decidere se destinarlo alle barrique."),
+    (":material/wine_bar:", "Su quale lotto",
+     "Un lotto di **Vinho Verde**, rosso o bianco, di cui hai le analisi chimico-fisiche."),
+    (":material/insights:", "Cosa ottieni",
+     "La **probabilità** che il lotto sia di alta qualità (voto ≥ 7) e l'**azione di cantina** consigliata."),
+]
+for col, (icon, title, text) in zip(st.columns(3), usage_cards):
+    with col.container(border=True, height="stretch"):
+        st.markdown(f"**{icon} {title}**")
+        st.markdown(text)
+st.caption(
+    "Il colore del vino e l'assaggio non sono input: il modello usa solo le analisi chimico-fisiche.",
+    text_alignment="center",
+)
+
+st.space("small")
+col_input, col_result = st.columns([3, 2], gap="large")
+
+# ==================== COLONNA INPUT (SINISTRA) ====================
+with col_input:
+    st.header("1 · Descrivi il lotto", icon=":material/science:")
+    st.caption("Imposta i valori delle analisi di laboratorio, oppure parti da un lotto di esempio.")
+
+    with st.container(horizontal=True):
+        for name, lot in config.EXAMPLE_LOTS.items():
+            st.button(name, icon=":material/wine_bar:", help=lot["summary"], on_click=set_lot, args=(lot["values"],))
+        st.button(
+            "Lotto casuale",
+            icon=":material/casino:",
+            help="Valori casuali dentro i range tipici del dataset",
+            on_click=random_lot,
+        )
+
+    # Solo le feature usate dal modello; quelle non previste finiscono in "Altri parametri"
+    groups = [
+        (title, icon, subtitle, [f for f in feats if f in model_features])
+        for title, icon, subtitle, feats in config.FEATURE_GROUPS
+    ]
+    grouped = {f for *_, feats in groups for f in feats}
+    other = [f for f in model_features if f not in grouped]
+    if other:
+        groups.append(("Altri parametri", ":material/tune:", "Altre variabili usate dal modello", other))
+
+    values = {}
+    for title, icon, subtitle, feats in groups:
+        if not feats:
+            continue
+        with st.container(border=True):
+            st.subheader(title, icon=icon)
+            st.caption(subtitle)
+            input_cols = st.columns(2, gap="medium")
+            for i, feature in enumerate(feats):
+                with input_cols[i % 2]:
+                    values[feature] = feature_input(feature)
+
+    # Stesso ordine delle feature usato in training
+    features = {feature: values[feature] for feature in model_features}
+
+# ==================== COLONNA RISULTATO (DESTRA) ====================
+with col_result:
+    st.header("2 · Valutazione", icon=":material/insights:")
+    st.caption("Si aggiorna in tempo reale a ogni modifica dei parametri.")
+
+    prediction, probability = predict_wine_quality(model, features)
+    level, color, level_icon, action, action_detail = config.QUALITY_LEVELS[get_quality_level(probability)]
+    thresholds = config.QUALITY_THRESHOLDS
+    base_rate = config.BASE_HIGH_QUALITY_RATE
+
+    with st.container(border=True):
+        st.badge(level, icon=level_icon, color=color)
+        st.metric(
+            "Probabilità di alta qualità",
+            f"{probability:.0%}",
+            delta=f"{(probability - base_rate) * 100:+.0f} punti",
+            delta_description=f"rispetto alla media storica ({base_rate:.0%})",
+        )
+        st.progress(probability)
+        st.caption(
+            f"Base sotto il {thresholds['medium']:.0%} · Medio dal {thresholds['medium']:.0%} · "
+            f"Buono dal {thresholds['good']:.0%} · Eccellente dal {thresholds['excellent']:.0%}"
+        )
+        st.markdown(f"**Azione consigliata: {action}**")
+        st.markdown(action_detail)
+        st.caption(
+            "Classe prevista dal modello (soglia 50%): "
+            f"**{'alta qualità' if prediction == 1 else 'standard'}**"
+        )
+
+    with st.expander("Come leggere lo score", icon=":material/help:"):
+        st.markdown(
+            f"Nello storico solo il **{base_rate:.0%}** dei vini ha ricevuto un voto di 7 o più. "
+            "Per questo le soglie della raccomandazione sono più basse del 50%: anche un lotto "
+            "al 35% è molto più promettente della media. Usa lo score per **confrontare e ordinare** "
+            "i lotti, non come certezza: l'ultima parola resta all'assaggio dell'enologo. "
+            "Le soglie si cambiano in `config.py` (`QUALITY_THRESHOLDS`)."
+        )
+
+    tab_profile, tab_model, tab_details = st.tabs(
+        [":material/tune: Profilo", ":material/bar_chart: Il modello", ":material/code: Dettagli"]
+    )
+    with tab_profile:
+        st.altair_chart(profile_chart(features), width="stretch")
+        st.caption(
+            ":red[**●**] il tuo lotto · :orange[**|**] mediana dei vini di alta qualità · "
+            "barra: valori tipici del dataset (dal 5° al 95° percentile). "
+            "Passa sopra ai punti per vedere i valori."
+        )
+    with tab_model:
+        importance = get_feature_importance(model)
+        if importance is None:
+            st.caption("Questo modello non espone l'importanza delle feature.")
+        else:
+            st.altair_chart(importance_chart(importance), width="stretch")
+            st.caption(
+                "Quanto ogni parametro pesa nelle decisioni del modello, su tutti i lotti "
+                "(`feature_importances_` o coefficienti). Non dice in che direzione: "
+                "per quello guarda il profilo del lotto."
+            )
+    with tab_details:
+        st.json({
+            "input": {f: float(v) for f, v in features.items()},
+            "probabilita_alta_qualita": round(probability, 4),
+            "classe_prevista": prediction,
+            "modello": f"models:/{run_info['model_name']}@{run_info['model_alias']}",
+            "fonte": run_info["source"],
+        })
 
 # ==================== FOOTER ====================
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #888; font-size: 0.85rem; padding: 1rem;">
-    Dataset: UCI Machine Learning Repository - Wine Quality<br>
-    Sistema decisionale basato su analisi chimico-fisica per la selezione dei lotti da affinare
-</div>
-""", unsafe_allow_html=True)
+st.space("medium")
+st.caption(
+    f"Webapp di esempio del corso {config.COURSE_NAME} · [GitHub]({config.COURSE_REPO_URL})  \n"
+    "Dataset: UCI Machine Learning Repository, Wine Quality · Powered by MLflow, Streamlit e scikit-learn",
+    text_alignment="center",
+)
