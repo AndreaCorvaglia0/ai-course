@@ -16,6 +16,33 @@ def setup_mlflow() -> None:
     mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
 
 
+def load_registry_model_from_local_mlruns():
+    """
+    Carica il modello registrato cercando gli artefatti nella cartella mlruns locale.
+
+    MLflow salva path assoluti nei metadati (es. file:///Users/<utente>/...): se la cartella
+    mlruns arriva da un'altra macchina (clone GitHub, Streamlit Cloud) quei path non esistono.
+    I metadati del registry restano validi, quindi si risale al modello e lo si cerca qui.
+    """
+    mlruns_dir = config.BASE_DIR / "mlruns"
+    client = mlflow.MlflowClient()
+    version = client.get_model_version_by_alias(config.MLFLOW_MODEL_NAME, config.MLFLOW_MODEL_ALIAS)
+
+    candidates = []
+    # MLflow 3: source = "models:/<model_id>" -> mlruns/<exp>/models/<model_id>/artifacts
+    model_id = getattr(version, "model_id", None) or str(version.source).removeprefix("models:/")
+    if model_id:
+        candidates += list(mlruns_dir.glob(f"*/models/{model_id}/artifacts"))
+    # MLflow 2: modello salvato tra gli artefatti della run -> mlruns/<exp>/<run_id>/artifacts/model
+    if version.run_id:
+        candidates += list(mlruns_dir.glob(f"*/{version.run_id}/artifacts/model"))
+
+    for path in candidates:
+        if (path / "MLmodel").exists():
+            return mlflow.sklearn.load_model(str(path))
+    raise FileNotFoundError(f"Artefatti del modello non trovati in {mlruns_dir}")
+
+
 def load_model_from_mlflow():
     """
     Carica il modello con strategia a fallback:
@@ -35,7 +62,13 @@ def load_model_from_mlflow():
         model_uri = f"models:/{config.MLFLOW_MODEL_NAME}@{config.MLFLOW_MODEL_ALIAS}"
         
         # Carica il modello dal registry
-        model = mlflow.sklearn.load_model(model_uri)
+        try:
+            model = mlflow.sklearn.load_model(model_uri)
+            source = "MLflow Registry"
+        except Exception:
+            # mlruns copiata da un'altra macchina: path assoluti non validi
+            model = load_registry_model_from_local_mlruns()
+            source = "MLflow Registry (mlruns locale)"
         
         # Estrai feature names DIRETTAMENTE dal modello caricato
         feature_names = extract_feature_names_from_model(model)
@@ -60,7 +93,7 @@ def load_model_from_mlflow():
                 "model_name": config.MLFLOW_MODEL_NAME,
                 "model_version": version,
                 "model_alias": config.MLFLOW_MODEL_ALIAS,
-                "source": "MLflow Registry",
+                "source": source,
                 "accuracy": run.data.metrics.get("accuracy", 0.0),
                 "precision": run.data.metrics.get("precision", 0.0),
                 "recall": run.data.metrics.get("recall", 0.0),
@@ -75,7 +108,7 @@ def load_model_from_mlflow():
                 "model_name": config.MLFLOW_MODEL_NAME,
                 "model_version": "N/A",
                 "model_alias": config.MLFLOW_MODEL_ALIAS,
-                "source": "MLflow Registry",
+                "source": source,
                 "accuracy": 0.0,
                 "precision": 0.0,
                 "recall": 0.0,

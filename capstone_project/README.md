@@ -18,7 +18,8 @@ uv run streamlit run app.py
 ### Caricamento Dinamico del Modello
 - **Strategia a fallback intelligente**:
   1. Prova a caricare dal **MLflow Registry** (`wine_clf@production`)
-  2. Se fallisce, cerca una cartella `model/` nella working directory
+  2. Se la cartella `mlruns` arriva da un'altra macchina (clone GitHub, Streamlit Cloud), cerca gli artefatti del modello registrato nella `mlruns` locale
+  3. Se fallisce, cerca una cartella `model/` nella working directory
 - Estrae dinamicamente le feature richieste dal modello
 - Nome del modello configurabile in `config.py`
 - Supporta formati: `.pkl`, `.joblib`
